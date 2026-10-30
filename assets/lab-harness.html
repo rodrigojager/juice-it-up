@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>juice-it-up Lab</title>
+<style>
+/* The harness is neutral chrome: it never uses the tokens of the evaluated product. */
+:root {
+  --bg: #f4f4f3; --panel: #ffffff; --ink: #1b1b1a; --muted: #6b6b68; --line: #e2e2df;
+  --accent: #2b59c3; --warn: #a15c00; --warn-bg: #fff4e0; --bad: #b42318; --ok: #1f7a4d;
+  --stage: #d9d9d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151515; --panel: #1e1e1e; --ink: #ececea; --muted: #9a9a96; --line: #2e2e2c;
+    --accent: #7ea2ff; --warn: #f0b45a; --warn-bg: #2d2416; --bad: #ff8a80; --ok: #6fd3a0; --stage: #0c0c0c; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: auto 1fr; height: 100vh; }
+header { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 13px; margin: 0; font-weight: 600; }
+header .meta { color: var(--muted); }
+header .spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 4px 9px; font: inherit; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.seg button:disabled { opacity: .4; cursor: not-allowed; }
+button.plain { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 4px 9px; font: inherit; cursor: pointer; }
+button.plain:focus-visible, .seg button:focus-visible, nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+nav { overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 8px 0; }
+nav h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 12px 12px 4px; }
+nav .opp { padding: 6px 12px 2px; font-weight: 600; }
+nav .opp small { display: block; font-weight: 400; color: var(--muted); }
+nav a { display: flex; gap: 6px; align-items: baseline; padding: 4px 12px 4px 20px; color: var(--ink); text-decoration: none; }
+nav a[aria-current="true"] { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+nav a .tag { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+nav .none { padding: 2px 20px; color: var(--muted); }
+main { position: relative; overflow: auto; background: var(--stage); display: flex; flex-direction: column; }
+.fidelity { margin: 10px 12px 0; padding: 8px 10px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+.fidelity b { color: var(--ink); }
+.frame-wrap { flex: 1; display: flex; justify-content: center; align-items: flex-start; padding: 16px 12px 96px; overflow: auto; }
+.frame-box { position: relative; flex: none; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.18); transform-origin: top center; }
+iframe { border: 0; display: block; width: 100%; height: 100%; background: #fff; }
+.scale-note { position: absolute; top: -20px; left: 0; font-size: 11px; color: var(--muted); }
+.empty { margin: auto; max-width: 440px; text-align: center; color: var(--muted); padding: 40px 16px; }
+aside { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+aside h2 { font-size: 12px; margin: 0; }
+aside .ref { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+aside textarea { width: 100%; min-height: 84px; resize: vertical; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.note { color: var(--muted); font-size: 12px; }
+.status { min-height: 18px; font-size: 12px; }
+.status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
+.feedback-list { display: flex; flex-direction: column; gap: 6px; }
+.feedback-list div { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+.feedback-list b { font-weight: 600; }
+.conflict { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--bad); color: var(--bad); }
+@media (max-width: 1100px) { body { grid-template-columns: 220px 1fr; } aside { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); } }
+
+/* ---- Picker: specification of the prototype skill (Emil Kowalski), copied without changes ---- */
+.proto-picker { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2147483647; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: rgba(10, 10, 10, 0.82); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset, 0 8px 24px rgba(0, 0, 0, 0.24), 0 2px 6px rgba(0, 0, 0, 0.12); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; line-height: 1; -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none; }
+.proto-picker-highlight { position: absolute; top: 4px; left: 0; height: 28px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); will-change: transform; }
+.proto-picker[data-ready] .proto-picker-highlight { transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1), width 250ms cubic-bezier(0.23, 1, 0.32, 1); }
+@media (prefers-reduced-motion: reduce) { .proto-picker[data-ready] .proto-picker-highlight { transition: none; } }
+.proto-picker-item { position: relative; display: flex; align-items: center; height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: rgba(255, 255, 255, 0.55); font: inherit; cursor: pointer; transition: color 150ms ease-out; }
+.proto-picker-item:hover { color: rgba(255, 255, 255, 0.85); }
+.proto-picker-item:active { transform: scale(0.97); }
+.proto-picker-item:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.4); outline-offset: 2px; }
+.proto-picker-item[data-active] { color: #fff; }
+.proto-picker-divider { width: 1px; height: 16px; margin: 0 4px; background: rgba(255, 255, 255, 0.12); }
+.proto-picker-replay { padding: 0 10px; font-size: 14px; }
+.proto-picker[data-position="top"] { bottom: auto; top: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Lab</h1>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <div class="seg" role="group" aria-label="Viewport" id="viewports"></div>
+  <div class="seg" role="group" aria-label="Scale">
+    <button id="fit" aria-pressed="true">Fit</button><button id="real" aria-pressed="false">100%</button>
+  </div>
+  <div class="seg" role="group" aria-label="Speed" id="speeds"></div>
+  <button class="plain" id="pause" aria-pressed="false">Pause</button>
+  <button class="plain" id="rm" aria-pressed="false" title="Turns on the mock's reduced-motion mode">Reduced motion: no</button>
+</header>
+<nav id="nav" aria-label="Opportunities and variants"></nav>
+<main id="main"><div class="empty" id="empty">Loading state…</div></main>
+<aside id="aside" aria-label="Comments and decisions"></aside>
+
+<nav class="proto-picker" aria-label="Prototype variants" id="picker" hidden>
+  <span class="proto-picker-highlight" aria-hidden="true"></span>
+</nav>
+
+<script>
+(() => {
+  const VIEWPORTS = [
+    { id: 'desktop', label: 'Desktop', w: 1440, h: 900 },
+    { id: 'laptop', label: 'Laptop', w: 1280, h: 800 },
+    { id: 'tablet', label: 'Tablet', w: 834, h: 1112 },
+    { id: 'mobile', label: 'Mobile', w: 390, h: 844 },
+  ];
+  const SPEEDS = [1, 0.5, 0.25, 0.1];
+  const qs = new URLSearchParams(location.search);
+  const ui = {
+    viewport: qs.get('vp') || 'desktop',
+    fit: qs.get('fit') !== '0',
+    speed: Number(qs.get('speed') || 1),
+    paused: false,
+    reduced: qs.get('rm') === '1',
+    opp: qs.get('o'),
+    entry: qs.get('e'),
+  };
+  let state = null;
+  let speedTimer = null;
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const k of kids) if (k) n.append(k);
+    return n;
+  };
+
+  function persist() {
+    const u = new URL(location);
+    const set = (k, v, d) => (v == null || v === d ? u.searchParams.delete(k) : u.searchParams.set(k, v));
+    set('vp', ui.viewport, 'desktop'); set('fit', ui.fit ? null : '0'); set('speed', String(ui.speed), '1');
+    set('rm', ui.reduced ? '1' : null); set('o', ui.opp); set('e', ui.entry);
+    history.replaceState(null, '', u);
+  }
+
+  // Comparable entries: revisions with a recorded preview (V0 = baseline) and compositions.
+  function entries() {
+    const out = [];
+    for (const o of state.opportunities) {
+      for (const v of o.variants) for (const r of v.revisions) {
+        if (!r.preview) continue;
+        out.push({ key: `${o.id}/${v.id}/r${r.rev}`, opp: o.id, label: v.id === 'V0' ? 'Original' : `${v.name} r${r.rev}`, short: v.id === 'V0' ? 'Original' : `${v.id} r${r.rev}`, preview: r.preview, revision: r, variant: v, oppObj: o, kind: 'variant' });
+      }
+    }
+    for (const c of state.run.compositions || []) {
+      out.push({ key: c.id, opp: '_comp', label: `${c.id}: ${c.refs.join(' + ')}`, short: c.id, preview: c, composition: c, kind: 'composition' });
+    }
+    return out;
+  }
+
+  function srcOf(p) {
+    if (/^https?:\/\//.test(p.path)) return p.path;
+    // The entry may carry an anchor (index.html#lista); the reduced-motion flag goes before it.
+    const [file, hash] = (p.entry || 'index.html').split('#');
+    const base = '/run/' + p.path.replace(/\\/g, '/').replace(/\/$/, '') + '/' + file;
+    return base + (ui.reduced ? '?jiu-rm=1' : '') + (hash ? '#' + hash : '');
+  }
+
+  function renderHeader() {
+    $('title').textContent = `Lab — ${state.run.id}`;
+    const t = state.run.target;
+    $('meta').textContent = `${state.run.title} · mode ${state.run.mode}${t.git ? ` · ${t.git.head.slice(0, 7)}` : ''}`;
+    const vp = $('viewports'); vp.replaceChildren();
+    for (const v of VIEWPORTS) vp.append(el('button', { 'aria-pressed': String(ui.viewport === v.id), text: `${v.label} ${v.w}`, onclick: () => { ui.viewport = v.id; renderAll(); } }));
+    const sp = $('speeds'); sp.replaceChildren();
+    for (const s of SPEEDS) sp.append(el('button', { 'aria-pressed': String(ui.speed === s), text: `${s}×`, onclick: () => { ui.speed = s; renderHeader(); applyPlayback(); persist(); } }));
+    $('fit').setAttribute('aria-pressed', String(ui.fit));
+    $('real').setAttribute('aria-pressed', String(!ui.fit));
+    $('pause').setAttribute('aria-pressed', String(ui.paused));
+    $('pause').textContent = ui.paused ? 'Resume' : 'Pause';
+    $('rm').setAttribute('aria-pressed', String(ui.reduced));
+    $('rm').textContent = `Reduced motion: ${ui.reduced ? 'yes' : 'no'}`;
+  }
+
+  function renderNav(all) {
+    const nav = $('nav'); nav.replaceChildren(el('h2', { text: 'Opportunities' }));
+    for (const o of state.opportunities) {
+      nav.append(el('div', { class: 'opp' }, document.createTextNode(`${o.id} ${o.title}`), el('small', { text: `${o.surface || ''} ${o.location || ''} · ${o.state}` })));
+      const mine = all.filter((e) => e.opp === o.id);
+      if (!mine.length) nav.append(el('div', { class: 'none', text: 'no mocks recorded' }));
+      for (const e of mine) nav.append(el('a', { href: '#', 'aria-current': String(ui.entry === e.key), onclick: (ev) => { ev.preventDefault(); select(e); } }, document.createTextNode(e.label), el('span', { class: 'tag', text: tagOf(e) })));
+    }
+    const comps = all.filter((e) => e.kind === 'composition');
+    if (comps.length) {
+      nav.append(el('h2', { text: 'Compositions' }));
+      for (const e of comps) nav.append(el('a', { href: '#', 'aria-current': String(ui.entry === e.key), onclick: (ev) => { ev.preventDefault(); select(e); } }, document.createTextNode(e.label)));
+    }
+  }
+
+  function tagOf(e) {
+    const r = e.revision; if (!r) return '';
+    const d = { undecided: '', preview: 'preview', rejected: 'rejected', deferred: 'deferred', implement: 'chosen for implementation' }[r.decision];
+    return [r.preferred ? '★' : '', d, r.work === 'stale' ? 'stale' : ''].filter(Boolean).join(' · ');
+  }
+
+  function renderStage(cur) {
+    const main = $('main'); main.replaceChildren();
+    if (!cur) { main.append(el('div', { class: 'empty', text: 'No mock recorded yet. The controller records each demonstration with "preview-set" and it appears here.' })); return; }
+    const fid = cur.preview.fidelity;
+    main.append(el('div', { class: 'fidelity' }, el('b', { text: 'Fidelity: ' }), document.createTextNode(fid || 'not declared — treat as unverified.')));
+    if (cur.revision?.work === 'stale') main.append(el('div', { class: 'fidelity' }, el('b', { text: 'Stale: ' }), document.createTextNode('the target changed since this mock. The comparison may not reflect the current site.')));
+    if (cur.composition?.conflicts) main.append(el('div', { class: 'fidelity conflict' }, el('b', { text: 'Conflicts: ' }), document.createTextNode(cur.composition.conflicts)));
+    const vp = VIEWPORTS.find((v) => v.id === ui.viewport) || VIEWPORTS[0];
+    const wrap = el('div', { class: 'frame-wrap' });
+    const box = el('div', { class: 'frame-box' });
+    box.style.width = vp.w + 'px'; box.style.height = vp.h + 'px';
+    const frame = el('iframe', { src: srcOf(cur.preview), title: `Preview ${cur.key}` });
+    frame.addEventListener('load', () => applyPlayback());
+    box.append(frame);
+    wrap.append(box);
+    main.append(wrap);
+    const fit = () => {
+      const avail = wrap.clientWidth - 24;
+      const s = ui.fit ? Math.min(1, avail / vp.w) : 1;
+      box.style.transform = s < 1 ? `scale(${s})` : '';
+      box.style.marginBottom = s < 1 ? `${-(vp.h * (1 - s))}px` : '';
+      box.querySelector('.scale-note')?.remove();
+      box.prepend(el('span', { class: 'scale-note', text: `${vp.w}×${vp.h}${s < 1 ? ` · shown at ${Math.round(s * 100)}% (use 100% for real scale)` : ' · real scale'}` }));
+    };
+    requestAnimationFrame(fit);
+    window.onresize = () => { fit(); movePicker(); };
+  }
+
+  function frameWindow() {
+    const f = document.querySelector('main iframe');
+    try { return f && f.contentWindow && f.contentWindow.document ? f.contentWindow : null; } catch { return null; }
+  }
+
+  // Speed/pause via Web Animations (covers CSS animations/transitions and WAAPI) and GSAP, if present.
+  function applyPlayback() {
+    clearInterval(speedTimer);
+    const w = frameWindow();
+    const controls = ['pause', 'rm'].map($).concat([...$('speeds').children]);
+    if (!w) { controls.forEach((b) => (b.disabled = true)); status('Preview from another origin: speed and pause unavailable here; use the mock\'s own controls.', 'bad'); return; }
+    controls.forEach((b) => (b.disabled = false));
+    if (ui.reduced) w.document.documentElement.setAttribute('data-jiu-reduced-motion', '');
+    // Only resumes what the harness itself paused; animations paused by the mock stay paused.
+    const pausedByHarness = (w.__jiuPausedByHarness ||= new WeakSet());
+    const tick = () => {
+      try {
+        for (const a of w.document.getAnimations()) {
+          if (a.playbackRate !== ui.speed) a.playbackRate = ui.speed;
+          if (ui.paused && a.playState === 'running') { a.pause(); pausedByHarness.add(a); }
+          if (!ui.paused && pausedByHarness.has(a)) { a.play(); pausedByHarness.delete(a); }
+        }
+        if (w.gsap?.globalTimeline) { w.gsap.globalTimeline.timeScale(ui.speed); w.gsap.globalTimeline.paused(ui.paused); }
+        w.__jiuPlayback?.({ speed: ui.speed, paused: ui.paused });
+      } catch { /* the mock may have navigated to another origin */ }
+    };
+    // Polling alone lets a click-triggered animation run its first frames at 1×: also apply on start.
+    w.__jiuTick = tick;
+    if (!w.__jiuListening) {
+      w.__jiuListening = true;
+      const onStart = () => w.__jiuTick?.();
+      for (const type of ['animationstart', 'transitionrun']) w.document.addEventListener(type, onStart, true);
+    }
+    tick();
+    speedTimer = setInterval(tick, 120);
+  }
+
+  function replay() {
+    const f = document.querySelector('main iframe');
+    if (f) f.src = f.src;
+  }
+
+  // Picker: one button per entry of the current opportunity (original + variants), without animating the switch.
+  let pickerItems = [];
+  function renderPicker(all, cur) {
+    const picker = $('picker');
+    const group = cur ? all.filter((e) => e.opp === cur.opp) : [];
+    picker.hidden = group.length < 2;
+    picker.removeAttribute('data-ready');
+    picker.querySelectorAll('.proto-picker-item, .proto-picker-divider').forEach((n) => n.remove());
+    pickerItems = group.map((e) => {
+      const b = el('button', { class: 'proto-picker-item', text: e.short, 'data-active': e.key === cur.key, 'aria-current': e.key === cur.key ? 'true' : false, onclick: () => select(e) });
+      picker.append(b);
+      return { b, e };
+    });
+    picker.append(el('span', { class: 'proto-picker-divider', 'aria-hidden': 'true' }));
+    picker.append(el('button', { class: 'proto-picker-item proto-picker-replay', 'aria-label': 'Replay animation (R)', text: '↻', onclick: replay }));
+    movePicker();
+    requestAnimationFrame(() => requestAnimationFrame(() => picker.setAttribute('data-ready', '')));
+  }
+  function movePicker() {
+    const active = pickerItems.find((x) => x.b.hasAttribute('data-active'));
+    const hl = document.querySelector('.proto-picker-highlight');
+    if (!active || !hl) return;
+    hl.style.width = active.b.offsetWidth + 'px';
+    hl.style.transform = `translateX(${active.b.offsetLeft}px)`;
+  }
+
+  function renderAside(cur) {
+    const a = $('aside'); a.replaceChildren();
+    if (!cur) return;
+    a.append(el('h2', { text: cur.kind === 'composition' ? 'Composition' : 'Item under review' }), el('div', { class: 'ref', text: cur.key }));
+    if (cur.kind === 'composition') {
+      a.append(el('p', { class: 'note', text: 'Compositions show the choices together. Comment on each item in its own variant.' }));
+      return;
+    }
+    const r = cur.revision;
+    a.append(el('div', { class: 'note', text: `Decision: ${r.decision} · work: ${r.work}${r.preferred ? ' · preferred' : ''}` }));
+    const ta = el('textarea', { id: 'fb', placeholder: 'What works, what does not, what to adjust…', 'aria-label': 'Comment' });
+    a.append(ta);
+    const send = (type) => async () => {
+      const text = ta.value.trim();
+      if ((type === 'comment' || type === 'adjust') && !text) { status('Write the comment or adjustment before sending.', 'bad'); ta.focus(); return; }
+      try {
+        const res = await fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type, ref: cur.key, text, viewport: ui.viewport, reducedMotion: ui.reduced, speed: ui.speed }) });
+        if (!res.ok) throw new Error(await res.text());
+        ta.value = '';
+        status(`Recorded (${type}). The controller incorporates it at the next stage.`, 'ok');
+      } catch (e) { status(`Not recorded: ${e.message}`, 'bad'); }
+    };
+    if (cur.variant.id === 'V0') {
+      a.append(el('div', { class: 'actions' }, el('button', { class: 'plain', text: 'Comment', onclick: send('comment') })));
+    } else {
+      a.append(el('div', { class: 'actions' },
+        el('button', { class: 'plain', text: 'I prefer this', onclick: send('prefer') }),
+        el('button', { class: 'plain', text: 'Request adjustment', onclick: send('adjust') }),
+        el('button', { class: 'plain', text: 'Comment', onclick: send('comment') }),
+        el('button', { class: 'plain', text: 'Defer', onclick: send('defer') }),
+        el('button', { class: 'plain', text: 'Reject', onclick: send('reject') }),
+      ));
+    }
+    a.append(el('div', { class: 'status', id: 'status', role: 'status', 'aria-live': 'polite' }));
+    a.append(el('p', { class: 'note', text: 'Preferring a variant does not authorize changing the site. To implement, tell the controller the exact item and revision.' }));
+    if (r.feedback?.length) {
+      a.append(el('h2', { text: 'History of this revision' }));
+      const list = el('div', { class: 'feedback-list' });
+      for (const f of r.feedback) list.append(el('div', {}, el('b', { text: f.type }), document.createTextNode(f.text ? ` — ${f.text}` : ''), el('div', { class: 'note', text: `${f.viewport || ''} ${f.ts || ''}` })));
+      a.append(list);
+    }
+  }
+
+  function status(msg, kind) {
+    const s = $('status'); if (!s) return;
+    s.textContent = msg; s.className = `status ${kind || ''}`;
+  }
+
+  function select(e) { ui.entry = e.key; ui.opp = e.opp; ui.paused = false; renderAll(); }
+
+  function renderAll() {
+    const all = entries();
+    let cur = all.find((e) => e.key === ui.entry) || all.find((e) => e.opp === ui.opp) || all[0];
+    if (cur) { ui.entry = cur.key; ui.opp = cur.opp; }
+    renderHeader(); renderNav(all); renderStage(cur); renderPicker(all, cur); renderAside(cur); persist();
+  }
+
+  $('fit').onclick = () => { ui.fit = true; renderAll(); };
+  $('real').onclick = () => { ui.fit = false; renderAll(); };
+  $('pause').onclick = () => { ui.paused = !ui.paused; renderHeader(); applyPlayback(); };
+  $('rm').onclick = () => { ui.reduced = !ui.reduced; renderAll(); };
+
+  document.addEventListener('keydown', (e) => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const i = pickerItems.findIndex((x) => x.b.hasAttribute('data-active'));
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= pickerItems.length) select(pickerItems[n - 1].e);
+    else if (e.key === 'ArrowRight' && pickerItems.length) select(pickerItems[(i + 1) % pickerItems.length].e);
+    else if (e.key === 'ArrowLeft' && pickerItems.length) select(pickerItems[(i - 1 + pickerItems.length) % pickerItems.length].e);
+    else if (e.key === 'r' || e.key === 'R') replay();
+    else if (e.key === ' ') { e.preventDefault(); $('pause').click(); }
+  });
+
+  async function load() {
+    if (location.protocol === 'file:') {
+      $('empty').textContent = 'Open the lab through the server: node <skill>/scripts/jiu.mjs serve <R-xxx>. Opened as a file, it cannot read the state or record comments.';
+      return;
+    }
+    try {
+      state = await (await fetch('/api/state', { cache: 'no-store' })).json();
+      renderAll();
+    } catch (e) { $('empty').textContent = `Failed to read the state: ${e.message}`; }
+  }
+  load();
+})();
+</script>
+</body>
+</html>

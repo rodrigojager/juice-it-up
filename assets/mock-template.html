@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+  Mock template for juice-it-up. Copy to previews/<O-xx>/<Vx>/r<n>/index.html.
+  Replace the {{...}} placeholders. Keep the three blocks marked "jiu:" intact:
+  1. jiu:reduced-motion — the lab toggles reduced motion via ?jiu-rm=1;
+  2. jiu:guard — prevents the demonstration from making real mutations (POST, form submission, beacons);
+  3. jiu:fidelity — declares what is functional and what is simulated.
+-->
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{O-xx}}/{{Vx}}/r{{n}} — {{variant name}}</title>
+
+<!-- jiu:reduced-motion -->
+<script>
+  if (new URLSearchParams(location.search).has('jiu-rm')) document.documentElement.setAttribute('data-jiu-reduced-motion', '');
+</script>
+
+<!-- jiu:guard -->
+<script>
+  (() => {
+    const blocked = (what) => console.info(`[jiu] simulated, not sent: ${what}`);
+    const realFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      const method = String(init.method || (input && input.method) || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        blocked(`${method} ${typeof input === 'string' ? input : input.url}`);
+        return Promise.resolve(new Response(JSON.stringify({ simulated: true }), { status: 200, headers: { 'content-type': 'application/json' } }));
+      }
+      return realFetch(input, init);
+    };
+    const open = XMLHttpRequest.prototype.open;
+    const send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (m, u, ...rest) { this.__jiu = String(m).toUpperCase() + ' ' + u; return open.call(this, m, u, ...rest); };
+    XMLHttpRequest.prototype.send = function (body) { if (!/^(GET|HEAD) /.test(this.__jiu || 'GET ')) { blocked(this.__jiu); return; } return send.call(this, body); };
+    navigator.sendBeacon = (u) => { blocked(`beacon ${u}`); return true; };
+    document.addEventListener('submit', (e) => { e.preventDefault(); blocked(`form ${e.target.action || ''}`); document.dispatchEvent(new CustomEvent('jiu:simulated-submit', { detail: e.target })); }, true);
+  })();
+</script>
+
+<style>
+  /* Fonts, colors and spacing: the product's own (real tokens when there is code; declared approximation when there is only a URL). */
+  :root {
+    /* {{product tokens}} */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  /* Reduced motion: always both selectors. Gentler, not zero: keep opacity/color, remove displacement. */
+  @media (prefers-reduced-motion: reduce) {
+    /* {{reduced-motion rules}} */
+  }
+  html[data-jiu-reduced-motion] {
+    /* {{the same reduced-motion rules}} */
+  }
+
+  /* Visual marker for simulated controls (remove if fidelity is total). */
+  [data-jiu-simulated] { outline: 1px dashed rgba(161, 92, 0, .6); outline-offset: 2px; }
+</style>
+</head>
+<body>
+  <!-- jiu:fidelity — the lab also shows the text recorded with preview-set -->
+  <template id="jiu-fidelity">
+    Functional: {{what really works}}
+    Simulated: {{what is simulated and marked with data-jiu-simulated}}
+    Known differences from the original: {{typography, content, behavior}}
+    Media: {{draft | existing | approved final}}
+  </template>
+
+  <!-- Representative context around the intervention: the same task and content comparable to the original (V0). -->
+  {{content}}
+
+  <script>
+    // Optional: the lab calls this function when speed/pause changes.
+    // Use when the animation is not visible via document.getAnimations() (canvas, video, Three.js, Rive).
+    window.__jiuPlayback = ({ speed, paused }) => {
+      /* e.g.: video.playbackRate = speed; paused ? video.pause() : video.play(); */
+    };
+  </script>
+</body>
+</html>

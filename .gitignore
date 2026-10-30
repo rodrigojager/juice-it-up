@@ -1,0 +1,4 @@
+# Run state created when the skill is used inside this folder
+.juice-it-up/
+node_modules/
+*.tmp
