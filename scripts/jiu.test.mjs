@@ -221,3 +221,19 @@ test('controller rulings are recorded and listed in order', () => {
   assert.match(out, /1\. .*\[O-01\/V1\/r1\] kept existing easing token — if wrong: one extra review/);
   assert.match(out, /2\. .*\[T-001\] minor \(deferred\)/);
 });
+
+test('without --state, a jproject container keeps the state in its work folder', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jiu-container-'));
+  const work = path.join(root, 'work');
+  const product = path.join(root, 'product');
+  fs.mkdirSync(work, { recursive: true });
+  fs.mkdirSync(path.join(product, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(work, 'WORKSPACE.md'), '---\njproject: 1\nproduct_dir: product\nwork_dir: work\n---\n# map\n');
+  fs.writeFileSync(path.join(product, 'WORKSPACE.md'), '# Product map\n');
+  const env = { ...process.env };
+  delete env.JIU_STATE;
+  const r = spawnSync(process.execPath, [CLI, 'init', '--code', product], { encoding: 'utf8', cwd: product, env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(fs.existsSync(path.join(work, '30-plan', 'juice-it-up', 'runs', 'R-001', 'run.json')));
+  assert.ok(!fs.existsSync(path.join(product, '.juice-it-up')));
+});

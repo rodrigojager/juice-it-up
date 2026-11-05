@@ -107,8 +107,31 @@ const normPath = (p) => (p ? path.resolve(p) : undefined);
 
 // ---------- state location ----------
 
+// jproject container: an ancestor of cwd holding <work_dir>/WORKSPACE.md whose front
+// matter has `jproject: 1`. Its work folder keeps the state; the product repo never does.
+function containerWorkDir(start = process.cwd()) {
+  for (let dir = path.resolve(start); ; dir = path.dirname(dir)) {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { /* unreadable: keep walking */ }
+    for (const e of entries) {
+      if (!e.isDirectory() && !e.isSymbolicLink()) continue;
+      let text;
+      try { text = fs.readFileSync(path.join(dir, e.name, 'WORKSPACE.md'), 'utf8'); } catch { continue; }
+      const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+      if (!fm || !/^jproject:\s*1\s*$/m.test(fm[1])) continue;
+      const wd = /^work_dir:\s*(.+?)\s*$/m.exec(fm[1]);
+      if (wd && path.resolve(dir, wd[1]) !== path.join(dir, e.name)) continue;
+      return path.join(dir, e.name);
+    }
+    if (path.dirname(dir) === dir) return null;
+  }
+}
+
 function stateDir(opts) {
-  return path.resolve(str(opts.state) || process.env.JIU_STATE || '.juice-it-up');
+  const explicit = str(opts.state) || process.env.JIU_STATE;
+  if (explicit) return path.resolve(explicit);
+  const work = containerWorkDir();
+  return work ? path.join(work, '30-plan', 'juice-it-up') : path.resolve('.juice-it-up');
 }
 
 function runPath(opts, id) {
@@ -892,7 +915,7 @@ commands.serve = ({ pos, opts }) => {
 
 commands.help = () => {
   console.log(`jiu — juice-it-up workflow state
-Global: --state <dir> (default: ./.juice-it-up or $JIU_STATE)
+Global: --state <dir> (default: $JIU_STATE, else <work>/30-plan/juice-it-up inside a jproject container, else ./.juice-it-up)
 
   init --url <u> --code <dir> [--title t] [--new]     create a run (or point to the existing one)
   list [--url u] [--code dir] [--all]                  list runs

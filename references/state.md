@@ -4,10 +4,10 @@ State cannot exist only in the chat. Everything another session would need to co
 
 ## Where it lives
 
-- With code: `<code>/.juice-it-up/runs/R-NNN/`
-- URL only: `<cwd>/.juice-it-up/runs/R-NNN/`
+- Inside a jproject container (its work folder, usually `_work/`, holds a `WORKSPACE.md` whose front matter has `jproject: 1`; `jproject root --json` prints the paths): `_work/30-plan/juice-it-up/runs/R-NNN/`. Never inside the product repository. Without `--state` or `JIU_STATE`, `jiu` finds the container by walking up from the current directory and uses this folder.
+- Outside a container: ask the user where to keep the state before `init`; do not assume the repository. Without a container, `--state` or `JIU_STATE`, `jiu` falls back to `<cwd>/.juice-it-up`.
 
-Always pass `--state <absolute path of .juice-it-up>`. `jiu` does not change `.gitignore`; when the directory falls inside a repository, ask the user whether to ignore it or version it (versioning keeps the history across machines; ignoring keeps the repository clean). Git worktrees are never used by this workflow.
+Always pass `--state <absolute path of the state directory>`. `jiu` does not change `.gitignore`; when the user puts the directory inside a repository, ask whether to ignore it or version it (versioning keeps the history across machines; ignoring keeps the repository clean). Git worktrees are never used by this workflow.
 
 ## Layout of a run
 

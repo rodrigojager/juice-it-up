@@ -54,7 +54,7 @@ They apply in every stage. Breaking one is a workflow failure, even if the resul
 node <skill-dir>/scripts/jiu.mjs <command> ... --state <state-dir>
 ```
 
-`<skill-dir>` is the folder of this file. State directory: `<code>/.juice-it-up` when there is code; otherwise `<cwd>/.juice-it-up`. Always pass `--state` as an absolute path. Commands, schemas, exit codes, and the resume protocol are in [references/state.md](references/state.md). Summary of daily use: `init`, `show`, `next`, `validate`, `check-stale`, `opp-add`, `variant-add`, `variant-revise`, `decide`, `preview-set`, `reviewed`, `task`, `events-ingest`, `media`, `serve`.
+`<skill-dir>` is the folder of this file. State directory: inside a jproject container (its work folder, usually `_work/`, holds a `WORKSPACE.md` whose front matter has `jproject: 1`; `jproject root --json` prints the paths), `_work/30-plan/juice-it-up/`, never inside the product repository; `jiu` defaults to it when run from inside a container. Outside a container, ask the user where to keep the state before `init`; do not assume the repository. Always pass `--state` as an absolute path. Commands, schemas, exit codes, and the resume protocol are in [references/state.md](references/state.md). Summary of daily use: `init`, `show`, `next`, `validate`, `check-stale`, `opp-add`, `variant-add`, `variant-revise`, `decide`, `preview-set`, `reviewed`, `task`, `events-ingest`, `media`, `serve`.
 
 Exit code 3 means a rule or limit for authorization refused the action: do not work around it; resolve it with the user, or record the exception with `--over-limit` and a reason when the user asked for it.
 
